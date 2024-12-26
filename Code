@@ -1,0 +1,141 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load the dataset
+file_path = "AnomaData.xlsx"  # Update with your file path if needed
+data = pd.read_excel(file_path)
+
+# Display basic information about the dataset
+print("Dataset Information:")
+data.info()
+
+# Display the first 5 rows of the dataset
+print("\nFirst 5 Rows:")
+print(data.head())
+
+# Check for missing values
+print("\nMissing Values:")
+print(data.isnull().sum())
+# Descriptive statistics
+print("\nDescriptive Statistics:")
+print(data.describe())
+
+# Check data types
+print("\nData Types:")
+print(data.dtypes)
+
+# Distribution of target variable (if applicable)
+if 'Class' in data.columns:
+    sns.countplot(x='Class', data=data)
+    plt.title('Class Distribution')
+    plt.show()
+
+# Correlation matrix
+plt.figure(figsize=(12, 8))
+correlation_matrix = data.corr()
+sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
+
+# Histogram for numerical columns
+data.hist(figsize=(16, 12), bins=30)
+plt.suptitle('Feature Distributions')
+plt.show()
+# Handle missing values
+# Option 1: Fill missing values with the mean of each column
+data = data.fillna(data.mean())
+print("\nMissing Values After Handling:")
+print(data.isnull().sum())
+# Descriptive statistics
+print("\nDescriptive Statistics:")
+print(data.describe())
+
+# Check data types
+print("\nData Types:")
+print(data.dtypes)
+# Handling Outliers
+for column in data.select_dtypes(include=[np.number]).columns:
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    # Replace outliers with median
+    median = data[column].median()
+    data[column] = np.where((data[column] < lower_bound) | (data[column] > upper_bound), median, data[column])
+
+print("\nOutliers handled.")
+# Standardization (Scaling)
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+scaled_data = pd.DataFrame(scaler.fit_transform(data.select_dtypes(include=[np.number])), columns=data.select_dtypes(include=[np.number]).columns)
+
+# Combine scaled data with non-numerical columns
+for col in data.select_dtypes(exclude=[np.number]).columns:
+    scaled_data[col] = data[col]
+
+print("\nData Standardization Completed.")
+# Distribution of target variable (if applicable)
+if 'Class' in data.columns:
+    sns.countplot(x='Class', data=data)
+    plt.title('Class Distribution')
+    plt.show()
+
+# Correlation matrix
+plt.figure(figsize=(12, 8))
+correlation_matrix = data.corr()
+sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
+
+# Histogram for numerical columns
+data.hist(figsize=(16, 12), bins=30)
+plt.suptitle('Feature Distributions')
+plt.show()
+# Standardization (Scaling)
+scaler = StandardScaler()
+data_scaled = pd.DataFrame(scaler.fit_transform(data.select_dtypes(include=[np.number])), columns=data.select_dtypes(include=[np.number]).columns)
+
+# Train-test split
+from sklearn.model_selection import train_test_split
+X_train, X_test = train_test_split(data_scaled, test_size=0.2, random_state=42)
+# Apply Isolation Forest for anomaly detection
+iso_forest = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
+iso_forest.fit(X_train)
+# Predict anomalies
+X_train['anomaly'] = iso_forest.predict(X_train)
+X_test['anomaly'] = iso_forest.predict(X_test)
+# Evaluate model
+print("\nTraining Set Anomaly Distribution:")
+print(X_train['anomaly'].value_counts())
+
+print("\nTest Set Anomaly Distribution:")
+print(X_test['anomaly'].value_counts())
+X_train, X_test = train_test_split(data_scaled.select_dtypes(include=[np.number]), test_size=0.2, random_state=42)
+# Predict anomalies without modifying X_test
+test_anomaly = iso_forest.predict(X_test)
+# Combine scaled data with non-numerical columns
+for col in data.select_dtypes(exclude=[np.number]).columns:
+    data_scaled[col] = data[col]
+print("\nData Standardization Completed.")
+# Prepare labels
+y_true = [1 if x == -1 else 0 for x in test_anomaly]
+y_pred = [1 if x == -1 else 0 for x in test_anomaly]
+# Evaluate model
+print("\nClassification Report:")
+print(classification_report(y_true, y_pred))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_true, y_pred))
+
+print("\nAccuracy Score:")
+print(accuracy_score(y_true, y_pred))
+# Visualization
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=X_test.iloc[:, 0], y=X_test.iloc[:, 1], hue=test_anomaly, palette=['blue', 'red'])
+plt.title('Isolation Forest Anomaly Detection')
+plt.show()
+print("Isolation Forest Training, Validation, and Deployment Completed.")
